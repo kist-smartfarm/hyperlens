@@ -14,7 +14,7 @@ def buildAction(
     action = QtGui.QAction(text, parent)
     if icon is not None:
         action.setIconText(text.replace(" ", "\n"))
-        action.setIcon(newIcon(icon))
+        action.setIcon(icon)
     if shortcut is not None:
         if isinstance(shortcut, (list, tuple)):
             action.setShortcuts(shortcut)

@@ -23,7 +23,7 @@ class RoiListSingleRectItem(QtWidgets.QWidget):
         if self.rectImage is not None: 
             qImage = util.image.convertCvImage2qImage(rectImage)
             pixmap = QtGui.QPixmap(qImage)
-            pixmapHeight = int(self.height() * 0.92)
+            pixmapHeight = int(self.height() * 1.1)
             pixmap = pixmap.scaled(pixmapHeight, pixmapHeight,
                                    QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation) 
             imageQLabel.setPixmap(pixmap)

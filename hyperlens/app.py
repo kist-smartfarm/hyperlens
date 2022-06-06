@@ -89,15 +89,40 @@ class MainWindow(QtWidgets.QMainWindow):
         fileMenu = menubar.addMenu('&File')
 
         fileMenu.addAction(openHSIAction)
+        fileMenu.addSeparator()
         fileMenu.addAction(loadModelAction)
         fileMenu.addAction(saveAction)
+        fileMenu.addSeparator()
         fileMenu.addAction(closeHSIAction)
-        fileMenu.addAction(exitAction)
+        fileMenu.addAction(exitAction)  
 
         self.statusBar().showMessage('Ready')
 
         self.hsiView = hsiView(self)
         self.setCentralWidget(self.hsiView)
+
+        self.toolbar = QtWidgets.QToolBar("Tools")
+        self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolbar)
+        self.toolbar.setObjectName("Tools")
+
+        normalPointerAction = buildAction(
+            self.tr("Normal Pointer"), 
+            lambda _ : print('normal Pointer'), 
+            None, 
+            QtGui.QIcon(str(pathlib.Path('hyperlens/icons/arrows-move.svg'))),
+            self.tr("Normal Mode")
+        )
+        
+        singleRectanglePointerAction = buildAction(
+            self.tr("Single Rectangle"), 
+            lambda _ : print('single rectangle Pointer'), 
+            None, 
+            QtGui.QIcon(str(pathlib.Path('hyperlens/icons/square.svg'))), 
+            self.tr("Select Single Patch for inference")
+        )
+
+        self.toolbar.addAction(normalPointerAction)
+        self.toolbar.addAction(singleRectanglePointerAction)
 
         self.roiDock = QtWidgets.QDockWidget(self.tr("ROI List"), self)
         self.roiDock.setObjectName("RoiList")
