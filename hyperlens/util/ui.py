@@ -7,7 +7,7 @@ def buildAction(
     shortcut=None, 
     icon=None, 
     tip=None,
-    checkable=False, 
+    checkable = False, 
     enabled= True, 
     checked = False
 ): 
