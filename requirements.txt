@@ -1,0 +1,7 @@
+opencv-python 
+Pillow 
+spectral 
+PySide6
+numpy 
+loguru 
+pyqtdarktheme
