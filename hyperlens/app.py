@@ -6,11 +6,12 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from __main__ import *
 from hsiView import hsiView
-from roiListWidget import RoiListWidget, RoiListSingleRectItem 
+from roiListWidget import RoiListWidget, RoiListSingleRectItemWidget 
 
 import cv2 
 
 from util import hsi, ui, image
+import ai as ai
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(
@@ -30,7 +31,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.hsiView.SingleRectCreated.connect(self.onSingleRectCreated)
         self.hsiView.SingleRectCreated.connect(self.onSingleRectRemoved)
-        
+        self.threadpool = QtCore.QThreadPool()
+
         logger.info(f"Hello, {self.appName}")
 
     def initUI(self):
@@ -105,24 +107,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolbar)
         self.toolbar.setObjectName("Tools")
 
-        normalPointerAction = buildAction(
+        self.normalPointerAction = buildAction(
             self.tr("Normal Pointer"), 
-            lambda _ : print('normal Pointer'), 
+            self.onDragMode, 
             None, 
             QtGui.QIcon(str(pathlib.Path('hyperlens/icons/arrows-move.svg'))),
-            self.tr("Normal Mode")
+            self.tr("Normal Mode"), 
+            False, 
+            False, 
+            False
         )
         
-        singleRectanglePointerAction = buildAction(
+        self.singleRectanglePointerAction = buildAction(
             self.tr("Single Rectangle"), 
-            lambda _ : print('single rectangle Pointer'), 
+            self.onSingleRectangleMode, 
             None, 
             QtGui.QIcon(str(pathlib.Path('hyperlens/icons/square.svg'))), 
-            self.tr("Select Single Patch for inference")
+            self.tr("Select Single Patch for inference"), 
+            True, 
+            False, 
+            False
         )
 
-        self.toolbar.addAction(normalPointerAction)
-        self.toolbar.addAction(singleRectanglePointerAction)
+        self.toolbar.addAction(self.normalPointerAction)
+        self.toolbar.addAction(self.singleRectanglePointerAction)
 
         self.roiDock = QtWidgets.QDockWidget(self.tr("ROI List"), self)
         self.roiDock.setObjectName("RoiList")
@@ -142,24 +150,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show()
         self.update()
 
+        # For test
         self.openHSI('../strawberry_hyper/Healthy05_irradiance.raw')
 
-    def openHSI(self, targetHdrPath = None):
-        if targetHdrPath is None:
-            defaultFilePath = "~"
+    def openHSI(self, targetHdrPath: pathlib.Path = None):
+        if type(targetHdrPath) is str or type(targetHdrPath) is type(pathlib.Path): 
+            targetHdrPath = pathlib.Path(targetHdrPath)
+        else: 
+            defaultFilePath = pathlib.Path("~/")
             targetHdrPath = pathlib.Path(
                 str(
                     QtWidgets.QFileDialog.getOpenFileName(
                         self,
                         self.tr("Open .hdr File"), 
-                        defaultFilePath, 
+                        str(defaultFilePath), 
                         'HDR files (*.hdr)'
                     )[0]
                 )
             )
-        else: 
-            targetHdrPath = pathlib.Path(targetHdrPath)
-
+        
         targetRawPath = targetHdrPath.with_suffix('.raw')
         if not targetRawPath.exists(): 
             QtWidgets.QMessageBox.information(
@@ -168,20 +177,22 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"No .raw pair for {str(targetHdrPath)}.", 
                 QtWidgets.QMessageBox.Ok
             )
-            return
+        else: 
+            logger.info(f"opening {targetHdrPath.name} & {targetRawPath.name}")
+            
+            hsiImage, rgbImage = hsi.loadImage(str(targetHdrPath))
+            qImage = image.convertCvImage2qImage(rgbImage)
+
+            self.hsiView.setImage(QtGui.QPixmap(qImage))
+
+            self.openedFileDict['raw'] = targetRawPath 
+            self.openedFileDict['hdr'] = targetHdrPath 
+            self.openedFileDict['rgbArr'] = rgbImage
+            self.openedFileDict['hsiArr'] = hsiImage
+
+            self.singleRectanglePointerAction.setEnabled(True)
+            self.normalPointerAction.setEnabled(True)
         
-        logger.info(f"opening {targetHdrPath.name} & {targetRawPath.name}")
-        
-        hsiImage, rgbImage = hsi.loadImage(str(targetHdrPath))
-        qImage = image.convertCvImage2qImage(rgbImage)
-
-        self.hsiView.setImage(QtGui.QPixmap(qImage))
-
-        self.openedFileDict['raw'] = targetRawPath 
-        self.openedFileDict['hdr'] = targetHdrPath 
-        self.openedFileDict['rgbArr'] = rgbImage
-        self.openedFileDict['hsiArr'] = hsiImage
-
     def onSingleRectCreated(self, rectItem: QtWidgets.QGraphicsRectItem):
         image = self.openedFileDict['rgbArr']
         x, y, w, h = rectItem.rect().getRect()
@@ -189,26 +200,58 @@ class MainWindow(QtWidgets.QMainWindow):
         x2 = int(x + w)
         y1 = int(y)
         y2 = int(y + h) 
-        rectImage = image[y1:y2, x1:x2,:]
-        self.addRoiSingleRectItem(rectItem, rectImage)
-        
+        rgbRoi = image[y1:y2, x1:x2,:]
+        item = self.addRoiSingleRectItem(rectItem, rgbRoi)
+
+        hsiRoi = self.openedFileDict['hsiArr'][y1:y2, x1:x2]
+        worker = ai.AiWorker(hsiRoi, item)
+        worker.signal.inferenceFinished.connect(self.onInferenceFinished)
+        self.threadpool.start(worker)
+
+    def onInferenceFinished(self, resDict, item: QtWidgets.QListWidgetItem): 
+        logger.info(f'Inference result : {resDict}, {item}') 
+        row = self.roiListView.itemWidget(item)
+        maxKey = max(resDict, key=resDict.get)
+        row.setTitle(f" {maxKey} ({resDict[maxKey]:.3f})")
+
+
     def addRoiSingleRectItem(self, rectItem, rectImage): 
         item = QtWidgets.QListWidgetItem(self.roiListView)
         self.roiListView.addItem(item)
-        row = RoiListSingleRectItem('test', self.roiListView, rectImage)
+        row = RoiListSingleRectItemWidget('id', 'Inferencing...',self.roiListView, rectImage)
         item.setSizeHint(row.minimumSizeHint())
         self.roiListView.setItemWidget(item, row)
+        return item
 
     def onSingleRectRemoved(self, item):
         pass 
 
+    def onDragMode(self): 
+        self.hsiView.setImageDragMode(True) 
+        self.singleRectanglePointerAction.setChecked(False)
+
+    def onSingleRectangleMode(self): 
+        if self.hsiView._mode == self.hsiView.MODE_SINGLE_RECT:         
+            self.hsiView.setSingleRectangleMode(False)
+        else:
+            self.hsiView.setSingleRectangleMode(True)
+
     def closeHSI(self): 
         closingFileName = self.openedFileDict['raw'].name
-        self.openedFileDict.clear()
-        
         logger.info(f"closing {closingFileName}")
 
         self.hsiView.setImage(None)
+        
+        self.openedFileDict.clear()
+        self.roiListView.clear() 
+
+        self.singleRectanglePointerAction.setDisabled(True)
+        self.singleRectanglePointerAction.setChecked(False)
+        self.normalPointerAction.setDisabled(True)
+        #self.singleRectanglePointerAction.
+        #QtGui.QAction().setChecked
+
+
 
     def closeEvent(self, event):
         logger.info(f"Exiting {self.appName} Goodbye.")

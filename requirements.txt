@@ -5,3 +5,4 @@ PySide6
 numpy 
 loguru 
 pyqtdarktheme
+tensorflow-cpu

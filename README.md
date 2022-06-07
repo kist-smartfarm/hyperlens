@@ -4,6 +4,8 @@
 >
 > contact: redtiger@kist.re.kr
 
+![screenshot](./doc/screenshot.png)
+
 ## Installation 
 
 install miniconda or anaconda to set python virtual environment. 
