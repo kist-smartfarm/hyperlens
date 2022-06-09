@@ -15,9 +15,9 @@ class hsiView(QtWidgets.QGraphicsView):
     MODE_EMPTY = 0
     MODE_DRAG = 1
     MODE_SINGLE_RECT = 2
-
-    SingleRectCreated = QtCore.Signal(QtWidgets.QGraphicsRectItem) 
-    SingleRectRemoved = QtCore.Signal(QtWidgets.QGraphicsRectItem) 
+    
+    SingleRectCreated = QtCore.Signal(QtWidgets.QGraphicsRectItem, str) 
+    SingleRectRemoved = QtCore.Signal(QtWidgets.QGraphicsRectItem, str) 
 
     def __init__(self, parent): 
         super(hsiView, self).__init__(parent)
@@ -34,6 +34,8 @@ class hsiView(QtWidgets.QGraphicsView):
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(30, 30, 30)))
         self.setFrameShape(QtWidgets.QFrame.NoFrame) 
+
+        self.roi_num = 0 
 
     def hasImage(self):
         return self._mode != self.MODE_EMPTY
@@ -64,6 +66,7 @@ class hsiView(QtWidgets.QGraphicsView):
             self._image.setPixmap(QtGui.QPixmap())
             for item in self.drawingItems: 
                 self._scene.removeItem(item)
+            self.roi_num = 0 
         self.fitInView()
 
     def wheelEvent(self, event):
@@ -85,7 +88,7 @@ class hsiView(QtWidgets.QGraphicsView):
         return super().mouseMoveEvent(event)
         
     def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent):
-        self.addSingleRect(event)     
+        self.addSingleRoi(event)     
         return super().mousePressEvent(event) 
 
     def removeSingleRect(self, item : QtWidgets.QGraphicsRectItem): 
@@ -93,7 +96,7 @@ class hsiView(QtWidgets.QGraphicsView):
             self._scene.removeItem(item)
             self.SingleRectRemoved.emit(item)
 
-    def addSingleRect(self, event):
+    def addSingleRoi(self, event):
         pos = self.mapToScene(event.pos())
         rectangle_length = 16
         rect = QtCore.QRect(pos.x() - rectangle_length / 2, 
@@ -101,11 +104,20 @@ class hsiView(QtWidgets.QGraphicsView):
                                                rectangle_length, rectangle_length)
         if self._mode == self.MODE_SINGLE_RECT and self.hasImage() \
            and self.sceneRect().contains(rect):
-            rectItem = self._scene.addRect(rect)
+            rectItem = QtWidgets.QGraphicsRectItem(rect)
             rectItem.setPen(QtGui.QPen(QtGui.QColor(255,0,0)))
-            rectItem.show() 
-            self.SingleRectCreated.emit(rectItem)
-            self.drawingItems.append(rectItem)
+            numberText = QtWidgets.QGraphicsTextItem()
+            numberText.setDefaultTextColor(QtGui.QColor(255,0,0))
+            numberText.setPos(rect.topLeft().x() - 4, rect.topLeft().y() - 20);
+            self.roi_num += 1
+            numberText.setPlainText(str(self.roi_num));
+
+            itemGroup = self._scene.createItemGroup([rectItem, numberText])
+            #self._scene.addItem(itemGroup);
+
+            self.SingleRectCreated.emit(rectItem, str(self.roi_num))
+            self.drawingItems.append(itemGroup)
+
             logger.info(f"rectangle added on {pos}")
 
     def setImageDragMode(self, dragMode):

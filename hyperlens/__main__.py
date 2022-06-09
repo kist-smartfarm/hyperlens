@@ -8,8 +8,8 @@ import qdarktheme
 
 from app import MainWindow
 
-__appname__ = "hyperlens"
-__version__ = "0.0.1"
+__appname__ = "HyperLens"
+__version__ = "0.3.2"
 
 if __name__ == "__main__": 
     logger.info(f"{__appname__}-{__version__}")
@@ -25,7 +25,7 @@ if __name__ == "__main__":
         qApp, 
         __appname__
     )
-    window.setWindowTitle(__appname__)
+    window.setWindowTitle(f"{__appname__} ({__version__})")
 
     window.show()
 

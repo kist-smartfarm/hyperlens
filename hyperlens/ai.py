@@ -51,3 +51,27 @@ class AiWorker(QtCore.QRunnable):
         resDict = cnnInference(self.cube)
         logger.info(f"Elapsed time : {timer.elapsed()}(ms) for inference")
         self.signal.inferenceFinished.emit(resDict, self.qlistViewitem)
+
+
+def get_ndvi2(a):
+
+    ndvi=(a[89]-a[60])/(a[89]+a[60])
+
+    return ndvi
+
+# a = cube thr = 0.31 
+def ave_ndvi(a,thr):
+    ndvi_arr=np.zeros(len(a[:][0])*len(a[0][:]))
+    aa=a.reshape((len(a[:][0])*len(a[0][:]),a.shape[2]))
+    thr_count=0
+    
+    for i in range((len(a[:][0])*len(a[0][:]))):
+        ndvi_arr[i]=get_ndvi2(aa[i])
+        if ndvi_arr[i] > thr:
+            thr_count=thr_count+1
+        
+    #hr_ratio=thr_count/(len(a[:][0])*len(a[0][:])
+    ave=np.mean(ndvi_arr)
+    #print("average ndvi value of ROI is", ave)
+    #print("ratio of pixels recognized as plants by NDVI is", thr_count/(len(a[:][0])*len(a[0][:])) )
+    return ave, thr_count/(len(a[:][0])*len(a[0][:]))

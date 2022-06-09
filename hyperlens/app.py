@@ -33,8 +33,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hsiView.SingleRectCreated.connect(self.onSingleRectRemoved)
         self.threadpool = QtCore.QThreadPool()
 
-        logger.info(f"Hello, {self.appName}")
-
     def initUI(self):
         windowSize = self.settings.value("window/size", QtCore.QSize(600, 500))
         windowPosition = self.settings.value("window/position", QtCore.QPoint(0, 0))
@@ -92,8 +90,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         fileMenu.addAction(openHSIAction)
         fileMenu.addSeparator()
-        fileMenu.addAction(loadModelAction)
-        fileMenu.addAction(saveAction)
+        #fileMenu.addAction(loadModelAction)
+        #fileMenu.addAction(saveAction)
         fileMenu.addSeparator()
         fileMenu.addAction(closeHSIAction)
         fileMenu.addAction(exitAction)  
@@ -193,7 +191,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.singleRectanglePointerAction.setEnabled(True)
             self.normalPointerAction.setEnabled(True)
         
-    def onSingleRectCreated(self, rectItem: QtWidgets.QGraphicsRectItem):
+    def onSingleRectCreated(self, rectItem: QtWidgets.QGraphicsRectItem, id):
         image = self.openedFileDict['rgbArr']
         x, y, w, h = rectItem.rect().getRect()
         x1 = int(x)
@@ -201,19 +199,27 @@ class MainWindow(QtWidgets.QMainWindow):
         y1 = int(y)
         y2 = int(y + h) 
         rgbRoi = image[y1:y2, x1:x2,:]
-        item = self.addRoiSingleRectItem(rectItem, rgbRoi)
-
         hsiRoi = self.openedFileDict['hsiArr'][y1:y2, x1:x2]
-        worker = ai.AiWorker(hsiRoi, item)
-        worker.signal.inferenceFinished.connect(self.onInferenceFinished)
-        self.threadpool.start(worker)
+
+        item = self.addRoiSingleRectItem(rectItem, rgbRoi)
+        item.setData(QtCore.Qt.UserRole, id)
+
+        res = ai.ave_ndvi(hsiRoi, 0.31)
+        logger.info(f"average : {res[0]} pixcel ratio : {res[1]}")
+        if res[0] > 0.6 and res[1] > 0.7: 
+            worker = ai.AiWorker(hsiRoi, item)
+            worker.signal.inferenceFinished.connect(self.onInferenceFinished)
+            self.threadpool.start(worker)
+        else:
+            self.onInferenceFinished({'Not Plant' : 1}, item)
 
     def onInferenceFinished(self, resDict, item: QtWidgets.QListWidgetItem): 
-        logger.info(f'Inference result : {resDict}, {item}') 
+        logger.info(f'Inference result : {resDict}')
+        id = item.data(QtCore.Qt.UserRole) 
         row = self.roiListView.itemWidget(item)
+        row.setId(id)
         maxKey = max(resDict, key=resDict.get)
         row.setTitle(f" {maxKey} ({resDict[maxKey]:.3f})")
-
 
     def addRoiSingleRectItem(self, rectItem, rectImage): 
         item = QtWidgets.QListWidgetItem(self.roiListView)
