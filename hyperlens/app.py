@@ -148,8 +148,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show()
         self.update()
 
-        # For test
-        self.openHSI('../strawberry_hyper/Healthy05_irradiance.raw')
+        #self.openHSI('../strawberry_hyper/Healthy05_irradiance.raw')
 
     def openHSI(self, targetHdrPath: pathlib.Path = None):
         if type(targetHdrPath) is str or type(targetHdrPath) is type(pathlib.Path): 
