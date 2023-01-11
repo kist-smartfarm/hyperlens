@@ -30,8 +30,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.initUI() 
 
         self.hsiView.SingleRectCreated.connect(self.onSingleRectCreated)
-        self.hsiView.SingleRectCreated.connect(self.onSingleRectRemoved)
+
         self.threadpool = QtCore.QThreadPool()
+
+        self.roi_id_num = 1
 
     def initUI(self):
         windowSize = self.settings.value("window/size", QtCore.QSize(600, 500))
@@ -166,23 +168,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
             )
         
-        targetRawPath = targetHdrPath.with_suffix('.raw')
-        if not targetRawPath.exists(): 
+        targetHsiPath = targetHdrPath.with_suffix('.hsi')
+        if not targetHsiPath.exists(): 
             QtWidgets.QMessageBox.information(
                 self,
                 self.tr("Error"), 
-                f"No .raw pair for {str(targetHdrPath)}.", 
+                f"No hsi  pair for {str(targetHdrPath)}.", 
                 QtWidgets.QMessageBox.Ok
             )
         else: 
-            logger.info(f"opening {targetHdrPath.name} & {targetRawPath.name}")
+            logger.info(f"opening {targetHdrPath.name} & {targetHsiPath.name}")
             
             hsiImage, rgbImage = hsi.loadImage(str(targetHdrPath))
             qImage = image.convertCvImage2qImage(rgbImage)
 
             self.hsiView.setImage(QtGui.QPixmap(qImage))
 
-            self.openedFileDict['raw'] = targetRawPath 
+            self.openedFileDict['raw'] = targetHsiPath 
             self.openedFileDict['hdr'] = targetHdrPath 
             self.openedFileDict['rgbArr'] = rgbImage
             self.openedFileDict['hsiArr'] = hsiImage
@@ -200,12 +202,12 @@ class MainWindow(QtWidgets.QMainWindow):
         rgbRoi = image[y1:y2, x1:x2,:]
         hsiRoi = self.openedFileDict['hsiArr'][y1:y2, x1:x2]
 
-        item = self.addRoiSingleRectItem(rectItem, rgbRoi)
+        item = self.addRoiSingleRectItem(rectItem, rgbRoi, id)
         item.setData(QtCore.Qt.UserRole, id)
 
         res = ai.ave_ndvi(hsiRoi, 0.31)
         logger.info(f"average : {res[0]} pixcel ratio : {res[1]}")
-        if res[0] > 0.6 and res[1] > 0.7: 
+        if True: #res[0] > 0.6 and res[1] > 0.7: 
             worker = ai.AiWorker(hsiRoi, item)
             worker.signal.inferenceFinished.connect(self.onInferenceFinished)
             self.threadpool.start(worker)
@@ -220,16 +222,19 @@ class MainWindow(QtWidgets.QMainWindow):
         maxKey = max(resDict, key=resDict.get)
         row.setTitle(f" {maxKey} ({resDict[maxKey]:.3f})")
 
-    def addRoiSingleRectItem(self, rectItem, rectImage): 
+    def addRoiSingleRectItem(self, rectItem, rectImage, id): 
         item = QtWidgets.QListWidgetItem(self.roiListView)
         self.roiListView.addItem(item)
-        row = RoiListSingleRectItemWidget('id', 'Inferencing...',self.roiListView, rectImage)
+        row = RoiListSingleRectItemWidget(id, 'Inferencing...',self, item, rectImage)
+
         item.setSizeHint(row.minimumSizeHint())
         self.roiListView.setItemWidget(item, row)
         return item
 
-    def onSingleRectRemoved(self, item):
-        pass 
+    def removeSingleRect(self, item : QtWidgets.QListWidgetItem):
+        removed = self.roiListView.takeItem(self.roiListView.row(item))
+        logger.info('removed')
+        self.hsiView.removeSingleRect(item.data(QtCore.Qt.UserRole))
 
     def onDragMode(self): 
         self.hsiView.setImageDragMode(True) 

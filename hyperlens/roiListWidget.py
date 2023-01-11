@@ -2,14 +2,14 @@ from PySide6 import QtWidgets, QtGui, QtCore
 import util 
 
 class RoiListSingleRectItemWidget(QtWidgets.QWidget): 
-    def __init__(self, id, title, parent=None, rectImage=None):
+    def __init__(self, id, title, parent=None,item=None, rectImage=None):
         super(RoiListSingleRectItemWidget, self).__init__(parent)
 
         self.row = QtWidgets.QGridLayout()
-
+        self.parent = parent
         self.setLayout(self.row)
 
-        self.rectItem : QtWidgets.QGraphicsRectItem = None
+        self.item = item
         self.rectImage = rectImage
         self.imageQLabel = QtWidgets.QLabel() 
         self.id = id
@@ -36,6 +36,8 @@ class RoiListSingleRectItemWidget(QtWidgets.QWidget):
             pixmap = pixmap.scaled(pixmapHeight, pixmapHeight,
                                    QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation) 
             self.imageQLabel.setPixmap(pixmap)
+
+        self.deleteButton.clicked.connect(lambda _: self.parent.removeSingleRect(self.item))
 
         
     def setTitle(self, title): 

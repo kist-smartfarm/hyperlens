@@ -17,7 +17,6 @@ class hsiView(QtWidgets.QGraphicsView):
     MODE_SINGLE_RECT = 2
     
     SingleRectCreated = QtCore.Signal(QtWidgets.QGraphicsRectItem, str) 
-    SingleRectRemoved = QtCore.Signal(QtWidgets.QGraphicsRectItem, str) 
 
     def __init__(self, parent): 
         super(hsiView, self).__init__(parent)
@@ -34,7 +33,7 @@ class hsiView(QtWidgets.QGraphicsView):
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(30, 30, 30)))
         self.setFrameShape(QtWidgets.QFrame.NoFrame) 
-
+        self.rectGroups = {}
         self.roi_num = 0 
 
     def hasImage(self):
@@ -91,10 +90,11 @@ class hsiView(QtWidgets.QGraphicsView):
         self.addSingleRoi(event)     
         return super().mousePressEvent(event) 
 
-    def removeSingleRect(self, item : QtWidgets.QGraphicsRectItem): 
+    def removeSingleRect(self, id): 
         if self.hasImage(): 
-            self._scene.removeItem(item)
-            self.SingleRectRemoved.emit(item)
+            group = self.rectGroups[int(id)]
+            self._scene.removeItem(group)
+
 
     def addSingleRoi(self, event):
         pos = self.mapToScene(event.pos())
@@ -117,6 +117,7 @@ class hsiView(QtWidgets.QGraphicsView):
 
             self.SingleRectCreated.emit(rectItem, str(self.roi_num))
             self.drawingItems.append(itemGroup)
+            self.rectGroups[self.roi_num] = itemGroup
 
             logger.info(f"rectangle added on {pos}")
 

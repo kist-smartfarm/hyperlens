@@ -8,8 +8,8 @@ import qdarktheme
 
 from app import MainWindow
 
-__appname__ = "HyperLens"
-__version__ = "0.3.2"
+__appname__ = "HyperLens - Fruit"
+__version__ = "0.4.0"
 
 if __name__ == "__main__": 
     logger.info(f"{__appname__}-{__version__}")
